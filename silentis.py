@@ -1,11 +1,11 @@
-import discord
+ import discord
 from discord.ext import commands
 import os
 
-# Token from environment variable
+# TOKEN from environment variable (keep secure!)
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
-# Intents for full server visibility
+# Intents setup for full server event access
 intents = discord.Intents.default()
 intents.messages = True
 intents.guilds = True
@@ -13,21 +13,21 @@ intents.members = True
 intents.message_content = True
 intents.reactions = True
 
-# Bot setup
+# Bot prefix and command setup
 bot = commands.Bot(command_prefix=".", intents=intents)
 
-# Log channel (actual ID set)
-LOG_CHANNEL_ID = 1360588167681540107
+# Silentis Logging Channel (set your log channel ID)
+LOG_CHANNEL_ID = 1360588167681540107  # replace with your actual channel ID
 
-# On bot ready
+# Event: On bot ready
 @bot.event
 async def on_ready():
     log_channel = bot.get_channel(LOG_CHANNEL_ID)
     if log_channel:
-        await log_channel.send("Silentis is present. Watching. 🩸")
-    print(f"{bot.user} is now online.")
+        await log_channel.send("Silentis is now watching. 🩸")
+    print(f"{bot.user} is online.")
 
-# On message
+# Event: On message (message monitoring)
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
@@ -35,22 +35,22 @@ async def on_message(message):
 
     log_channel = bot.get_channel(LOG_CHANNEL_ID)
     if log_channel:
-        log_entry = f"📨 {message.author} in #{message.channel}: {message.content}"
+        log_entry = f"📨 Message from {message.author} in #{message.channel}: {message.content}"
         await log_channel.send(log_entry)
 
     await bot.process_commands(message)
 
-# Silent check command
+# Command: Silent check
 @bot.command()
 async def silentcheck(ctx):
     await ctx.send("Your silence is measured. 🩸")
 
-# Error handling
+# Error logging
 @bot.event
 async def on_command_error(ctx, error):
     log_channel = bot.get_channel(LOG_CHANNEL_ID)
     if log_channel:
         await log_channel.send(f"❌ Error: {str(error)}")
 
-# Run bot
+# Run the bot
 bot.run(TOKEN)
