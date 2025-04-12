@@ -2,10 +2,10 @@ import discord
 from discord.ext import commands
 import os
 
-# TOKEN from environment variable (keep secure!)
+# TOKEN from environment variable
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
-# Intents setup for full server event access
+# Intents for full access
 intents = discord.Intents.default()
 intents.messages = True
 intents.guilds = True
@@ -13,13 +13,12 @@ intents.members = True
 intents.message_content = True
 intents.reactions = True
 
-# Bot prefix and command setup
+# Bot setup
 bot = commands.Bot(command_prefix=".", intents=intents)
 
-# Silentis Logging Channel (update this with your channel ID)
+# Log channel ID (replace with your real ID)
 LOG_CHANNEL_ID = 1360588167681540107
 
-# Event: On bot ready
 @bot.event
 async def on_ready():
     log_channel = bot.get_channel(LOG_CHANNEL_ID)
@@ -27,7 +26,6 @@ async def on_ready():
         await log_channel.send("Silentis is now watching. 🩸")
     print(f"{bot.user} is online.")
 
-# Event: On message
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
@@ -40,17 +38,14 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-# Command: Silent check
 @bot.command()
 async def silentcheck(ctx):
     await ctx.send("Your silence is measured. 🩸")
 
-# Error logging
 @bot.event
 async def on_command_error(ctx, error):
     log_channel = bot.get_channel(LOG_CHANNEL_ID)
     if log_channel:
         await log_channel.send(f"❌ Error: {str(error)}")
 
-# Run the bot
 bot.run(TOKEN)
