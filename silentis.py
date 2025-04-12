@@ -16,8 +16,8 @@ intents.reactions = True
 # Bot prefix and command setup
 bot = commands.Bot(command_prefix=".", intents=intents)
 
-# Silentis Logging Channel (set your log channel ID)
-LOG_CHANNEL_ID = 1360588167681540107  # replace with your actual channel ID
+# Silentis Logging Channel (update this with your channel ID)
+LOG_CHANNEL_ID = 1360588167681540107
 
 # Event: On bot ready
 @bot.event
@@ -27,7 +27,7 @@ async def on_ready():
         await log_channel.send("Silentis is now watching. 🩸")
     print(f"{bot.user} is online.")
 
-# Event: On message (message monitoring)
+# Event: On message
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
