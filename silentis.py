@@ -19,7 +19,7 @@ intents.reactions = True
 bot = commands.Bot(command_prefix=".", intents=intents)
 
 # Log channel ID (replace with actual ID)
-LOG_CHANNEL_ID = 123456789012345678  # Replace with your log channel ID
+LOG_CHANNEL_ID = 1360588167681540107
 
 @bot.event
 async def on_ready():
