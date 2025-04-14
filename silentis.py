@@ -130,7 +130,7 @@ async def start_collective_stillness():
 # Ritual Structure Audit — Only usable by Lilla
 @bot.command(name="structure-audit")
 async def structure_audit(ctx):
-LILLA_ID = 1358577229638013020
+    LILLA_ID = 1358577229638013020
 
     if ctx.author.id != LILLA_ID:
         return  # Only Lilla can use this
