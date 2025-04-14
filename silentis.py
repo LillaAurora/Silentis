@@ -175,4 +175,7 @@ LILLA_ID = 1358577229638013020
     await log_channel.send("🕊 **Audit complete. Structure holds — or reveals its weakness.**")
 
 # Run the bot (token must be kept secret in deployment)
-# bot.run("YOUR_TOKEN_HERE")
+bot.run("MTM2MDYxODI4ODE3NDA3MjA0OQ.GAns50.I--1gwimEmxS_3clvZ5y5jm_AIczyVFoJtXiLY")
+
+
+
