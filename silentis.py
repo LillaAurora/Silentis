@@ -1,6 +1,7 @@
 import discord
-from discord.ext import commands, tasks
+from discord.ext import commands
 import asyncio
+import os
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -23,18 +24,6 @@ blueprints = {
         "start_time": None,
         "duration_minutes": 1440,
         "active": False,
-        "log_channel": "silenta-logbook"
-    },
-    "whisperer_promotion": {
-        "role_check": "Silent",
-        "role_to_assign": "Whisperer",
-        "activity_channel": "whispers",
-        "log_channel": "silenta-logbook"
-    },
-    "echoed_recognition": {
-        "role_check": "Whisperer",
-        "role_to_assign": "Echoed",
-        "activity_channel": "echo-chambers",
         "log_channel": "silenta-logbook"
     }
 }
@@ -63,79 +52,54 @@ async def on_raw_reaction_add(payload):
             except:
                 pass
 
-@bot.event
-async def on_message(message):
-    if message.author.bot:
-        return
-
-    bp = blueprints["whisperer_promotion"]
-    if message.channel.name == bp["activity_channel"]:
-        guild = message.guild
-        role_check = discord.utils.get(guild.roles, name=bp["role_check"])
-        role_assign = discord.utils.get(guild.roles, name=bp["role_to_assign"])
-        if role_check in message.author.roles and role_assign not in message.author.roles:
-            await message.author.add_roles(role_assign)
+async def handle_tribute(user, amount):
+    bp = blueprints["tribute_advancement"]
+    if amount >= bp["amount_threshold"]:
+        guild = discord.utils.get(bot.guilds, name="Domina Silentia")
+        member = guild.get_member(user.id)
+        role = discord.utils.get(guild.roles, name=bp["role_to_assign"])
+        if role and role not in member.roles:
+            await member.add_roles(role)
             log_channel = discord.utils.get(guild.channels, name=bp["log_channel"])
             if log_channel:
-                await log_channel.send(f"{message.author.mention} promoted to Whisperer.")
+                await log_channel.send(f"{member.mention} was moved via tribute (💠).")
 
-    bp = blueprints["echoed_recognition"]
-    if message.channel.name == bp["activity_channel"]:
-        guild = message.guild
-        role_check = discord.utils.get(guild.roles, name=bp["role_check"])
-        role_assign = discord.utils.get(guild.roles, name=bp["role_to_assign"])
-        if role_check in message.author.roles and role_assign not in message.author.roles:
-            await message.author.add_roles(role_assign)
-            log_channel = discord.utils.get(guild.channels, name=bp["log_channel"])
-            if log_channel:
-                await log_channel.send(f"{message.author.mention} has been Echoed.")
+async def start_collective_stillness():
+    bp = blueprints["collective_stillness"]
+    bp["active"] = True
+    bp["start_time"] = discord.utils.utcnow()
+    log_channel = discord.utils.get(bot.get_all_channels(), name=bp["log_channel"])
+    if log_channel:
+        await log_channel.send("🌑 Collective Stillness Ritual has begun.")
 
-    await bot.process_commands(message)
+    await asyncio.sleep(bp["duration_minutes"] * 60)
+    bp["active"] = False
+    if log_channel:
+        await log_channel.send("🌕 Collective Stillness Ritual has ended.")
 
-@bot.command(name="permission-audit")
-async def permission_audit(ctx):
+# Ritual Structure Audit — Only usable by Lilla
+@bot.command(name="structure-audit")
+async def structure_audit(ctx):
     LILLA_ID = 1358577229638013020
     if ctx.author.id != LILLA_ID:
         return
 
+    required_channels = [
+        "how-to-interact", "main-hall", "rituals-and-rules", "whispers", "echo-chambers",
+        "questions-to-silence", "tribute-menu", "public-protocols", "protection-archive",
+        "whispers-log", "moderator-only", "silenta-logbook", "ritual-blueprints", 
+        "initiation-log", "exile-records", "assign-your-place"
+    ]
+
     guild = ctx.guild
-    log_channel = discord.utils.get(guild.text_channels, name="silenta-logbook")
-    if not log_channel:
-        return
+    missing = []
+    for name in required_channels:
+        if not discord.utils.get(guild.channels, name=name):
+            missing.append(name)
 
-    await log_channel.send("🔐 **PERMISSION AUDIT INITIATED**")
-
-    target_roles = ["Silent", "Whisperer", "Echoed", "Bound", "Exiled"]
-    key_channels = ["main-hall", "rituals-and-rules", "whispers", "echo-chambers"]
-    anomalies = []
-
-    for ch_name in key_channels:
-        ch = discord.utils.get(guild.text_channels, name=ch_name)
-        if not ch:
-            continue
-        for role_name in target_roles:
-            role = discord.utils.get(guild.roles, name=role_name)
-            if not role:
-                continue
-            perms = ch.permissions_for(role)
-            if role_name == "Silent" and ch_name == "whispers" and not perms.send_messages:
-                anomalies.append(f"❌ Silent cannot write in #{ch_name} (should be able to)")
-            if role_name == "Whisperer" and ch_name == "echo-chambers" and not perms.read_messages:
-                anomalies.append(f"❌ Whisperer cannot view #{ch_name} (should be able to)")
-            if role_name == "Echoed" and ch_name == "echo-chambers" and not perms.send_messages:
-                anomalies.append(f"❌ Echoed cannot write in #{ch_name} (should be able to)")
-            if role_name == "Bound" and perms.read_messages:
-                anomalies.append(f"⚠️ Bound can view #{ch_name} (should be hidden)")
-            if role_name == "Exiled" and perms.read_messages:
-                anomalies.append(f"⚠️ Exiled can view #{ch_name} (should be hidden)")
-
-    if anomalies:
-        await log_channel.send("\n".join(anomalies))
+    if missing:
+        await ctx.send("📂 **STRUCTURE AUDIT REPORT**\n⚠️ Missing channels:\n" + "\n".join(f"• {ch}" for ch in missing))
     else:
-        await log_channel.send("✅ All permissions aligned with protocol.")
+        await ctx.send("📂 **STRUCTURE AUDIT REPORT**\n✅ All required channels are present. Structure is intact.")
 
-    await log_channel.send("🔒 **Permission audit complete. Structure holds.**")
-
-import os
 bot.run(os.getenv("DISCORD_TOKEN"))
-
