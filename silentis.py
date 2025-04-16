@@ -136,4 +136,6 @@ async def permission_audit(ctx):
 
     await log_channel.send("🔒 **Permission audit complete. Structure holds.**")
 
-bot.run("MTM2MDYxODI4ODE3NDA3MjA0OQ.GAns50.I--1gwimEmxS_3clvZ5y5jm_AIczyVFoJtXiLY")
+import os
+bot.run(os.getenv("DISCORD_TOKEN"))
+
