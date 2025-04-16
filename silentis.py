@@ -6,10 +6,13 @@ import os
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# Restrict command usage to control-chamber only
+ALLOWED_COMMAND_CHANNEL = "control-chamber"
+
 # Blueprint configuration
 blueprints = {
     "initial_presence": {
-        "reaction": "🕯",
+        "reaction": "🔧",  # 🕯
         "channel": "rituals-and-rules",
         "role_to_assign": "Silent",
         "log_channel": "silenta-logbook",
@@ -44,9 +47,11 @@ async def on_raw_reaction_add(payload):
         role = discord.utils.get(guild.roles, name=bp["role_to_assign"])
         if role and role not in member.roles:
             await member.add_roles(role)
+
             log_channel = discord.utils.get(guild.channels, name=bp["log_channel"])
             if log_channel:
                 await log_channel.send(f"{member.mention} completed the Initial Presence Ceremony.")
+
             try:
                 await member.send(bp["dm_message"])
             except:
@@ -55,7 +60,7 @@ async def on_raw_reaction_add(payload):
 async def handle_tribute(user, amount):
     bp = blueprints["tribute_advancement"]
     if amount >= bp["amount_threshold"]:
-        guild = discord.utils.get(bot.guilds, name="Domina Silentia")
+        guild = discord.utils.get(bot.guilds, name="YourServerName")
         member = guild.get_member(user.id)
         role = discord.utils.get(guild.roles, name=bp["role_to_assign"])
         if role and role not in member.roles:
@@ -77,29 +82,34 @@ async def start_collective_stillness():
     if log_channel:
         await log_channel.send("🌕 Collective Stillness Ritual has ended.")
 
+# Command use restriction wrapper
+def command_channel_only():
+    async def predicate(ctx):
+        return ctx.channel.name == ALLOWED_COMMAND_CHANNEL
+    return commands.check(predicate)
+
 # Ritual Structure Audit — Only usable by Lilla
 @bot.command(name="structure-audit")
+@command_channel_only()
 async def structure_audit(ctx):
     LILLA_ID = 1358577229638013020
     if ctx.author.id != LILLA_ID:
         return
 
     required_channels = [
-        "how-to-interact", "main-hall", "rituals-and-rules", "whispers", "echo-chambers",
-        "questions-to-silence", "tribute-menu", "public-protocols", "protection-archive",
-        "whispers-log", "moderator-only", "silenta-logbook", "ritual-blueprints", 
-        "initiation-log", "exile-records", "assign-your-place"
+        "how-to-interact", "main-hall", "rituals-and-rules", "whispers",
+        "echo-chambers", "questions-to-silence", "tribute-menu",
+        "public-protocols", "protection-archive", "control-chamber"
     ]
-
     guild = ctx.guild
-    missing = []
-    for name in required_channels:
-        if not discord.utils.get(guild.channels, name=name):
-            missing.append(name)
+    existing_channels = [channel.name for channel in guild.channels]
+    missing = [c for c in required_channels if c not in existing_channels]
 
-    if missing:
-        await ctx.send("📂 **STRUCTURE AUDIT REPORT**\n⚠️ Missing channels:\n" + "\n".join(f"• {ch}" for ch in missing))
+    embed = discord.Embed(title="📂 STRUCTURE AUDIT REPORT")
+    if not missing:
+        embed.description = "✅ All required channels are present. Structure is intact."
     else:
-        await ctx.send("📂 **STRUCTURE AUDIT REPORT**\n✅ All required channels are present. Structure is intact.")
+        embed.description = "❌ Missing channels: " + ", ".join(missing)
+    await ctx.send(embed=embed)
 
 bot.run(os.getenv("DISCORD_TOKEN"))
