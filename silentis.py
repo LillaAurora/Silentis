@@ -5,7 +5,7 @@ import asyncio
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Blueprint configuration (extendable from external file later)
+# Blueprint configuration
 blueprints = {
     "initial_presence": {
         "reaction": "🕯",
@@ -92,88 +92,48 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-async def handle_tribute(user, amount):
-    bp = blueprints["tribute_advancement"]
-    if amount >= bp["amount_threshold"]:
-        for guild in bot.guilds:
-            member = guild.get_member(user.id)
-            if member:
-                role = discord.utils.get(guild.roles, name=bp["role_to_assign"])
-                if role and role not in member.roles:
-                    await member.add_roles(role)
-                    log_channel = discord.utils.get(guild.channels, name=bp["log_channel"])
-                    if log_channel:
-                        await log_channel.send(f"{member.mention} was moved via tribute (💠).")
-                break
-
-async def start_collective_stillness():
-    bp = blueprints["collective_stillness"]
-    bp["active"] = True
-    bp["start_time"] = discord.utils.utcnow()
-    log_channel = discord.utils.get(bot.get_all_channels(), name=bp["log_channel"])
-    if log_channel:
-        await log_channel.send("🌑 Collective Stillness Ritual has begun.")
-    await asyncio.sleep(bp["duration_minutes"] * 60)
-    bp["active"] = False
-    if log_channel:
-        await log_channel.send("🌕 Collective Stillness Ritual has ended.")
-
-@bot.command(name="structure-audit")
-async def structure_audit(ctx):
+@bot.command(name="permission-audit")
+async def permission_audit(ctx):
     LILLA_ID = 1358577229638013020
     if ctx.author.id != LILLA_ID:
         return
-    guild = ctx.guild
-    log_channel = discord.utils.get(guild.text_channels, name="silenta-logbook")
-    if not log_channel:
-        await ctx.send("⚠️ Log channel (#silenta-logbook) not found.")
-        return
-    await log_channel.send("🔎 **SERVER AUDIT INITIATED**")
-    required_roles = ["Silent", "Whisperer", "Echoed", "Bound", "Exiled"]
-    missing_roles = [role for role in required_roles if not discord.utils.get(guild.roles, name=role)]
-    if missing_roles:
-        await log_channel.send(f"⚠️ Missing roles: {', '.join(missing_roles)}")
-    else:
-        await log_channel.send("✅ All ceremonial roles are present.")
-    required_channels = ["main-hall", "rituals-and-rules", "whispers", "echo-chambers", "tribute-menu", "public-protocols", "silenta-logbook"]
-    missing_channels = [ch for ch in required_channels if not discord.utils.get(guild.channels, name=ch)]
-    if missing_channels:
-        await log_channel.send(f"⚠️ Missing channels: {', '.join(missing_channels)}")
-    else:
-        await log_channel.send("✅ All essential channels are present.")
-    me = guild.me
-    required_perms = ["manage_roles", "read_messages", "send_messages", "add_reactions"]
-    perms = me.guild_permissions
-    missing_perms = [perm for perm in required_perms if not getattr(perms, perm)]
-    if missing_perms:
-        await log_channel.send(f"⚠️ Silentis is missing permissions: {', '.join(missing_perms)}")
-    else:
-        await log_channel.send("✅ Silentis has all required permissions.")
-    await log_channel.send("🕊 **Audit complete. Structure holds — or reveals its weakness.**")
 
-@bot.command(name="silent-archive-audit")
-async def silent_archive_audit(ctx):
-    LILLA_ID = 1358577229638013020
-    if ctx.author.id != LILLA_ID:
-        return
     guild = ctx.guild
     log_channel = discord.utils.get(guild.text_channels, name="silenta-logbook")
     if not log_channel:
         return
-    await log_channel.send("📂 **ARCHIVE AUDIT INITIATED**")
-    archive_channels = [
-        "ritual-blueprints", "silenta-logbook", "initiation-log",
-        "exile-records", "assign-your-place", "moderator-only"
-    ]
-    missing = []
-    for ch_name in archive_channels:
-        ch = discord.utils.get(guild.channels, name=ch_name)
+
+    await log_channel.send("🔐 **PERMISSION AUDIT INITIATED**")
+
+    target_roles = ["Silent", "Whisperer", "Echoed", "Bound", "Exiled"]
+    key_channels = ["main-hall", "rituals-and-rules", "whispers", "echo-chambers"]
+    anomalies = []
+
+    for ch_name in key_channels:
+        ch = discord.utils.get(guild.text_channels, name=ch_name)
         if not ch:
-            missing.append(ch_name)
-    if missing:
-        await log_channel.send(f"⚠️ Missing archive channels: {', '.join(missing)}")
+            continue
+        for role_name in target_roles:
+            role = discord.utils.get(guild.roles, name=role_name)
+            if not role:
+                continue
+            perms = ch.permissions_for(role)
+            if role_name == "Silent" and ch_name == "whispers" and not perms.send_messages:
+                anomalies.append(f"❌ Silent cannot write in #{ch_name} (should be able to)")
+            if role_name == "Whisperer" and ch_name == "echo-chambers" and not perms.read_messages:
+                anomalies.append(f"❌ Whisperer cannot view #{ch_name} (should be able to)")
+            if role_name == "Echoed" and ch_name == "echo-chambers" and not perms.send_messages:
+                anomalies.append(f"❌ Echoed cannot write in #{ch_name} (should be able to)")
+            if role_name == "Bound" and perms.read_messages:
+                anomalies.append(f"⚠️ Bound can view #{ch_name} (should be hidden)")
+            if role_name == "Exiled" and perms.read_messages:
+                anomalies.append(f"⚠️ Exiled can view #{ch_name} (should be hidden)")
+
+    if anomalies:
+        await log_channel.send("\n".join(anomalies))
     else:
-        await log_channel.send("✅ All internal archive channels are present.")
-    await log_channel.send("📜 **Archive audit complete. Memory is intact.**")
+        await log_channel.send("✅ All permissions aligned with protocol.")
+
+    await log_channel.send("🔒 **Permission audit complete. Structure holds.**")
 
 bot.run("MTM2MDYxODI4ODE3NDA3MjA0OQ.GAns50.I--1gwimEmxS_3clvZ5y5jm_AIczyVFoJtXiLY")
