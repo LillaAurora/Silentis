@@ -1,8 +1,41 @@
-cogs/
-├── logger.py
-├── message_events.py
-├── member_events.py
-├── reaction_events.py
-├── voice_events.py
-├── channel_events.py
+import discord
+from discord.ext import commands
+from datetime import datetime
+import os
+
+class Logger(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+        self.log_channel_id = 1360588167681540107  # Silentis privát logcsatornája
+
+    async def stylized_log(self, event_type: str, content: str, channel_name: str, user: discord.User):
+        now = datetime.utcnow()
+        timestamp = now.strftime("%Y-%m-%d %H:%M:%S UTC")
+        date_str = now.strftime("%Y-%m-%d")
+        log_dir = "data/logs"
+        log_file = f"{log_dir}/{date_str}.txt"
+
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+
+        # Stílusos napló Discordra
+        discord_message = (
+            f"🌘 **{event_type}** in `#{channel_name}`\n"
+            f"🧍 **User**: {user.mention}\n"
+            f"{content}\n"
+            f"🕰 {timestamp}"
+        )
+
+        # Mentés fájlba
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"[{timestamp}] [{event_type}] in #{channel_name} | {user}: {content}\n")
+
+        # Küldés Discord logcsatornába
+        log_channel = self.bot.get_channel(self.log_channel_id)
+        if log_channel:
+            await log_channel.send(discord_message)
+
+def setup(bot):
+    bot.add_cog(Logger(bot))
+
 
