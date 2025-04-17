@@ -1,0 +1,8 @@
+cogs/
+├── logger.py
+├── message_events.py
+├── member_events.py
+├── reaction_events.py
+├── voice_events.py
+├── channel_events.py
+
