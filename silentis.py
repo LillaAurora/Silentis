@@ -1,115 +1,138 @@
 import discord
 from discord.ext import commands
-import asyncio
+from datetime import datetime
 import os
+import dotenv
+
+dotenv.load_dotenv()
+TOKEN = os.getenv("DISCORD_TOKEN")
+LOG_CHANNEL_ID = 1360588167681540107  # 🔐 Lilla privát logcsatornája
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Restrict command usage to control-chamber only
-ALLOWED_COMMAND_CHANNEL = "control-chamber"
+# 📜 Stilizált napló
+async def stylized_log(event_type: str, content: str, channel_name: str, user: discord.User):
+    now = datetime.utcnow()
+    timestamp = now.strftime("%Y-%m-%d %H:%M:%S UTC")
+    date_str = now.strftime("%Y-%m-%d")
+    log_dir = "data/logs"
+    log_file = f"{log_dir}/{date_str}.txt"
 
-# Blueprint configuration
-blueprints = {
-    "initial_presence": {
-        "reaction": "🔧",  # 🕯
-        "channel": "rituals-and-rules",
-        "role_to_assign": "Silent",
-        "log_channel": "silenta-logbook",
-        "dm_message": "You moved without speaking. You earned your first silence."
-    },
-    "tribute_advancement": {
-        "amount_threshold": 50,
-        "role_to_assign": "Bound",
-        "log_channel": "silenta-logbook"
-    },
-    "collective_stillness": {
-        "start_time": None,
-        "duration_minutes": 1440,
-        "active": False,
-        "log_channel": "silenta-logbook"
-    }
-}
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
 
+    # Fájlba mentés
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(f"[{timestamp}] [{event_type}] in #{channel_name} | {user}: {content}\n")
+
+    # Discord logüzenet
+    log_channel = bot.get_channel(LOG_CHANNEL_ID)
+    if log_channel:
+        discord_message = (
+            f"🌘 **{event_type}** in `#{channel_name}`\n"
+            f"🧍 **User**: {user.mention}\n"
+            f"{content}\n"
+            f"🕰 {timestamp}"
+        )
+        await log_channel.send(discord_message)
+
+# 💬 Üzenet érkezése
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+    content = f"💬 *Message*: “{message.content}”"
+    await stylized_log("Whisper Entered", content, message.channel.name, message.author)
+    await bot.process_commands(message)
+
+# 📝 Üzenetszerkesztés
+@bot.event
+async def on_message_edit(before, after):
+    if before.author.bot:
+        return
+    content = (
+        f"🔁 *Edited Whisper*\n"
+        f"📜 Before: “{before.content}”\n"
+        f"📜 After:  “{after.content}”"
+    )
+    await stylized_log("Echo Shifted", content, before.channel.name, before.author)
+
+# 🗑️ Üzenettörlés
+@bot.event
+async def on_message_delete(message):
+    if message.author.bot:
+        return
+    content = f"💀 *Deleted Whisper*: “{message.content}”"
+    await stylized_log("Echo Vanished", content, message.channel.name, message.author)
+
+# 🔔 Csatlakozás
+@bot.event
+async def on_member_join(member):
+    content = f"🌕 *A soul has entered.*"
+    await stylized_log("Presence Felt", content, "—", member)
+
+# 🕯 Távozás
+@bot.event
+async def on_member_remove(member):
+    content = f"🌑 *The silence reclaimed one.*"
+    await stylized_log("Presence Faded", content, "—", member)
+
+# 🎭 Becenév vagy névváltozás
+@bot.event
+async def on_user_update(before, after):
+    if before.name != after.name:
+        content = f"🖋 *Username changed*\nFrom: `{before.name}` → To: `{after.name}`"
+        await stylized_log("Name Shifted", content, "—", after)
+
+# 🎗 Szerepkör változás
+@bot.event
+async def on_member_update(before, after):
+    if before.roles != after.roles:
+        added = [r.name for r in after.roles if r not in before.roles]
+        removed = [r.name for r in before.roles if r not in after.roles]
+        changes = ""
+        if added:
+            changes += f"➕ Gained: {', '.join(added)}\n"
+        if removed:
+            changes += f"➖ Lost: {', '.join(removed)}"
+        if changes:
+            await stylized_log("Role Shifted", changes, "—", after)
+
+# 🔊 Voice csatorna események
+@bot.event
+async def on_voice_state_update(member, before, after):
+    if before.channel != after.channel:
+        if after.channel and not before.channel:
+            content = f"🔊 Joined voice: `{after.channel.name}`"
+            await stylized_log("Echo Heard", content, after.channel.name, member)
+        elif before.channel and not after.channel:
+            content = f"🔇 Left voice: `{before.channel.name}`"
+            await stylized_log("Echo Silenced", content, before.channel.name, member)
+        else:
+            content = f"🔄 Moved voice: `{before.channel.name}` → `{after.channel.name}`"
+            await stylized_log("Echo Shifted", content, after.channel.name, member)
+
+# 🧱 Csatornaváltozások (új, törölt, módosított)
+@bot.event
+async def on_guild_channel_create(channel):
+    content = f"➕ *Channel created*: `#{channel.name}`"
+    await stylized_log("Domain Expanded", content, channel.name, channel.guild.me)
+
+@bot.event
+async def on_guild_channel_delete(channel):
+    content = f"➖ *Channel deleted*: `#{channel.name}`"
+    await stylized_log("Domain Collapsed", content, channel.name, channel.guild.me)
+
+@bot.event
+async def on_guild_channel_update(before, after):
+    if before.name != after.name:
+        content = f"📝 *Channel renamed*\nFrom: `#{before.name}` → To: `#{after.name}`"
+        await stylized_log("Domain Renamed", content, after.name, after.guild.me)
+
+# ✅ Indulás
 @bot.event
 async def on_ready():
-    print(f"Silentis active as {bot.user}")
+    print(f"Silentis awakened as {bot.user}")
 
-@bot.event
-async def on_raw_reaction_add(payload):
-    guild = bot.get_guild(payload.guild_id)
-    channel = bot.get_channel(payload.channel_id)
-    message = await channel.fetch_message(payload.message_id)
-    member = payload.member
-
-    bp = blueprints["initial_presence"]
-    if str(payload.emoji) == bp["reaction"] and channel.name == bp["channel"]:
-        role = discord.utils.get(guild.roles, name=bp["role_to_assign"])
-        if role and role not in member.roles:
-            await member.add_roles(role)
-
-            log_channel = discord.utils.get(guild.channels, name=bp["log_channel"])
-            if log_channel:
-                await log_channel.send(f"{member.mention} completed the Initial Presence Ceremony.")
-
-            try:
-                await member.send(bp["dm_message"])
-            except:
-                pass
-
-async def handle_tribute(user, amount):
-    bp = blueprints["tribute_advancement"]
-    if amount >= bp["amount_threshold"]:
-        guild = discord.utils.get(bot.guilds, name="YourServerName")
-        member = guild.get_member(user.id)
-        role = discord.utils.get(guild.roles, name=bp["role_to_assign"])
-        if role and role not in member.roles:
-            await member.add_roles(role)
-            log_channel = discord.utils.get(guild.channels, name=bp["log_channel"])
-            if log_channel:
-                await log_channel.send(f"{member.mention} was moved via tribute (💠).")
-
-async def start_collective_stillness():
-    bp = blueprints["collective_stillness"]
-    bp["active"] = True
-    bp["start_time"] = discord.utils.utcnow()
-    log_channel = discord.utils.get(bot.get_all_channels(), name=bp["log_channel"])
-    if log_channel:
-        await log_channel.send("🌑 Collective Stillness Ritual has begun.")
-
-    await asyncio.sleep(bp["duration_minutes"] * 60)
-    bp["active"] = False
-    if log_channel:
-        await log_channel.send("🌕 Collective Stillness Ritual has ended.")
-
-# Command use restriction wrapper
-def command_channel_only():
-    async def predicate(ctx):
-        return ctx.channel.name == ALLOWED_COMMAND_CHANNEL
-    return commands.check(predicate)
-
-# Ritual Structure Audit — Only usable by Lilla
-@bot.command(name="structure-audit")
-@command_channel_only()
-async def structure_audit(ctx):
-    LILLA_ID = 1358577229638013020
-    if ctx.author.id != LILLA_ID:
-        return
-
-    required_channels = [
-        "how-to-interact", "main-hall", "rituals-and-rules", "whispers",
-        "echo-chambers", "questions-to-silence", "tribute-menu",
-        "public-protocols", "protection-archive", "control-chamber"
-    ]
-    guild = ctx.guild
-    existing_channels = [channel.name for channel in guild.channels]
-    missing = [c for c in required_channels if c not in existing_channels]
-
-    embed = discord.Embed(title="📂 STRUCTURE AUDIT REPORT")
-    if not missing:
-        embed.description = "✅ All required channels are present. Structure is intact."
-    else:
-        embed.description = "❌ Missing channels: " + ", ".join(missing)
-    await ctx.send(embed=embed)
-
-bot.run(os.getenv("DISCORD_TOKEN"))
+bot.run(TOKEN)
